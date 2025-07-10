@@ -1,9 +1,14 @@
+import os
+import re
+from datetime import datetime, timedelta, UTC
+
+from dotenv import load_dotenv
 import telebot
 from telebot.types import BotCommand, Message, ChatPermissions
-from datetime import datetime, timedelta, UTC
-import re
 
-API_TOKEN = 'YOUR_BOT_TOKEN_HERE'  # ← замени на свой токен
+# Загрузка .env
+load_dotenv()
+API_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(API_TOKEN)
 
 blacklist = set()  # Чёрный список пользователей
@@ -32,7 +37,6 @@ mute_commands = [
     ("unmute", "Снять мут")
 ]
 
-
 block_commands = [
     ("block_media", "Запретить стикеры и гифки"),
     ("unblock_media", "Разрешить стикеры и гифки")
@@ -49,6 +53,7 @@ all_commands = mute_commands + block_commands + ban_commands
 bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in all_commands])
 
 # ========== Вспомогательные функции ==========
+
 def is_admin(chat_id, user_id):
     try:
         member = bot.get_chat_member(chat_id, user_id)
@@ -71,40 +76,32 @@ def parse_duration(duration: str) -> int:
     return seconds
 
 # ========== Обработчики команд ==========
+
 @bot.message_handler(func=lambda m: m.from_user.id in blacklist)
 def blocked_user(message: Message):
     bot.reply_to(message, "⛔ Вы в чёрном списке и не можете использовать этого бота.")
 
 @bot.message_handler(commands=['ban'])
 def ban_user(message: Message):
-    if not is_admin(message.chat.id, message.from_user.id):
-        return
-    if message.reply_to_message:
+    if is_admin(message.chat.id, message.from_user.id) and message.reply_to_message:
         bot.ban_chat_member(message.chat.id, message.reply_to_message.from_user.id)
         bot.reply_to(message, "✅ Пользователь забанен.")
 
 @bot.message_handler(commands=['unban'])
 def unban_user(message: Message):
-    if not is_admin(message.chat.id, message.from_user.id):
-        return
-    if message.reply_to_message:
+    if is_admin(message.chat.id, message.from_user.id) and message.reply_to_message:
         bot.unban_chat_member(message.chat.id, message.reply_to_message.from_user.id)
         bot.reply_to(message, "✅ Пользователь разбанен.")
 
 @bot.message_handler(commands=['unmute'])
 def unmute_user(message: Message):
-    if not is_admin(message.chat.id, message.from_user.id):
-        return
-    if message.reply_to_message:
+    if is_admin(message.chat.id, message.from_user.id) and message.reply_to_message:
         perms = ChatPermissions(
             can_send_messages=True,
             can_send_media_messages=True,
             can_send_other_messages=True,
             can_add_web_page_previews=True,
-            can_send_polls=True,
-            can_change_info=False,
-            can_invite_users=True,
-            can_pin_messages=False
+            can_send_polls=True
         )
         bot.restrict_chat_member(
             chat_id=message.chat.id,
